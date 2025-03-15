@@ -48,6 +48,7 @@ Result Text::load(const char* filename) noexcept
     bool invalid; //invalid path
     auto loader = LoaderMgr::loader(filename, &invalid);
     if (loader) {
+        //TODO: FIXME:
         if (loader->sharing > 0) --loader->sharing;   //font loading doesn't mean sharing.
         return Result::Success;
     } else {

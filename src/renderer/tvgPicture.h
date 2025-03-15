@@ -272,13 +272,10 @@ struct Picture::Impl : Paint::Impl
 
     Result load(ImageLoader* loader)
     {
+        LoaderMgr::retrieve(this->loader);
+
         //Same resource has been loaded.
-        if (this->loader == loader) {
-            this->loader->sharing--;  //make it sure the reference counting.
-            return Result::Success;
-        } else if (this->loader) {
-            LoaderMgr::retrieve(this->loader);
-        }
+        if (this->loader == loader) return Result::Success;
 
         this->loader = loader;
 

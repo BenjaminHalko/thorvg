@@ -63,7 +63,7 @@ uintptr_t HASH_KEY(const char* data)
 
 ColorSpace ImageLoader::cs = ColorSpace::ARGB8888;
 
-static Key key;
+static Key _key;
 static Inlist<LoadModule> _activeLoaders;
 
 
@@ -202,8 +202,6 @@ static LoadModule* _findByType(const char* mimeType)
 
 static LoadModule* _findFromCache(const char* filename)
 {
-    ScopedLock lock(key);
-
     INLIST_FOREACH(_activeLoaders, loader) {
         if (loader->cached && loader->hashpath && !strcmp(loader->hashpath, filename)) {
             ++loader->sharing;
@@ -219,7 +217,6 @@ static LoadModule* _findFromCache(const char* data, uint32_t size, const char* m
     auto type = _convert(mimeType);
     if (type == FileType::Unknown) return nullptr;
 
-    ScopedLock lock(key);
     auto key = HASH_KEY(data);
 
     INLIST_FOREACH(_activeLoaders, loader) {
@@ -259,11 +256,9 @@ bool LoaderMgr::term()
 bool LoaderMgr::retrieve(LoadModule* loader)
 {
     if (!loader) return false;
+    ScopedLock lock(_key);
     if (loader->close()) {
-        if (loader->cached) {
-            ScopedLock lock(key);
-            _activeLoaders.remove(loader);
-        }
+        if (loader->cached) _activeLoaders.remove(loader);
         delete(loader);
     }
     return true;
@@ -280,6 +275,8 @@ LoadModule* LoaderMgr::loader(const char* filename, bool* invalid)
     auto ext = fileext(filename);
     if (ext && (!strcmp(ext, "svg") || !strcmp(ext, "json") || !strcmp(ext, "lot"))) allowCache = false;
 
+    ScopedLock lock(_key);
+
     if (allowCache) {
         if (auto loader = _findFromCache(filename)) return loader;
     }
@@ -288,10 +285,7 @@ LoadModule* LoaderMgr::loader(const char* filename, bool* invalid)
         if (loader->open(filename)) {
             if (allowCache) {
                 loader->cache(duplicate(filename));
-                {
-                    ScopedLock lock(key);
-                    _activeLoaders.back(loader);
-                }
+                _activeLoaders.back(loader);
             }
             return loader;
         }
@@ -303,10 +297,7 @@ LoadModule* LoaderMgr::loader(const char* filename, bool* invalid)
             if (loader->open(filename)) {
                 if (allowCache) {
                     loader->cache(duplicate(filename));
-                    {
-                        ScopedLock lock(key);
-                        _activeLoaders.back(loader);
-                    }
+                    _activeLoaders.back(loader);
                 }
                 return loader;
             }
@@ -321,6 +312,7 @@ LoadModule* LoaderMgr::loader(const char* filename, bool* invalid)
 
 bool LoaderMgr::retrieve(const char* filename)
 {
+    ScopedLock lock(_key);
     return retrieve(_findFromCache(filename));
 }
 
@@ -337,6 +329,8 @@ LoadModule* LoaderMgr::loader(const char* data, uint32_t size, const char* mimeT
         if (type == FileType::Lot) allowCache = false;
     }
 
+    ScopedLock lock(_key);
+
     if (allowCache) {
         if (auto loader = _findFromCache(data, size, mimeType)) return loader;
     }
@@ -347,7 +341,6 @@ LoadModule* LoaderMgr::loader(const char* data, uint32_t size, const char* mimeT
             if (loader->open(data, size, rpath, copy)) {
                 if (allowCache) {
                     loader->cache(HASH_KEY(data));
-                    ScopedLock lock(key);
                     _activeLoaders.back(loader);
                 }
                 return loader;
@@ -364,7 +357,6 @@ LoadModule* LoaderMgr::loader(const char* data, uint32_t size, const char* mimeT
             if (loader->open(data, size, rpath, copy)) {
                 if (allowCache) {
                     loader->cache(HASH_KEY(data));
-                    ScopedLock lock(key);
                     _activeLoaders.back(loader);
                 }
                 return loader;
@@ -378,6 +370,8 @@ LoadModule* LoaderMgr::loader(const char* data, uint32_t size, const char* mimeT
 
 LoadModule* LoaderMgr::loader(const uint32_t *data, uint32_t w, uint32_t h, ColorSpace cs, bool copy)
 {
+    ScopedLock lock(_key);
+
     //Note that users could use the same data pointer with the different content.
     //Thus caching is only valid for shareable.
     if (!copy) {
@@ -390,7 +384,6 @@ LoadModule* LoaderMgr::loader(const uint32_t *data, uint32_t w, uint32_t h, Colo
     if (loader->open(data, w, h, cs, copy)) {
         if (!copy) {
             loader->cache(HASH_KEY((const char*)data));
-            ScopedLock lock(key);
             _activeLoaders.back(loader);
         }
         return loader;
@@ -407,12 +400,13 @@ LoadModule* LoaderMgr::loader(const char* name, const char* data, uint32_t size,
     //TODO: add check for mimetype ?
     if (auto loader = font(name)) return loader;
 
+    ScopedLock lock(_key);
+
     //function is dedicated for ttf loader (the only supported font loader)
     auto loader = new TtfLoader;
     if (loader->open(data, size, "", copy)) {
         loader->name = duplicate(name);
         loader->cached = true;  //force it.
-        ScopedLock lock(key);
         _activeLoaders.back(loader);
         return loader;
     }
@@ -426,6 +420,7 @@ LoadModule* LoaderMgr::loader(const char* name, const char* data, uint32_t size,
 
 LoadModule* LoaderMgr::font(const char* name)
 {
+    ScopedLock lock(_key);
     INLIST_FOREACH(_activeLoaders, loader) {
         if (loader->type != FileType::Ttf) continue;
         if (loader->cached && tvg::equal(name, static_cast<FontLoader*>(loader)->name)) {
@@ -439,6 +434,7 @@ LoadModule* LoaderMgr::font(const char* name)
 
 LoadModule* LoaderMgr::anyfont()
 {
+    ScopedLock lock(_key);
     INLIST_FOREACH(_activeLoaders, loader) {
         if (loader->cached && loader->type == FileType::Ttf) {
             ++loader->sharing;

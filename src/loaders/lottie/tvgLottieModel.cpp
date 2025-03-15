@@ -316,10 +316,7 @@ float LottieTextRange::factor(float frameNo, float totalLen, float idx)
 void LottieFont::prepare()
 {
     if (!data.b64src || !name) return;
-
-    TaskScheduler::async(false);
     Text::load(name, data.b64src, data.size, "ttf", false);
-    TaskScheduler::async(true);
 }
 
 
@@ -329,14 +326,8 @@ void LottieImage::prepare()
 
     auto picture = Picture::gen();
 
-    //force to load a picture on the same thread
-    TaskScheduler::async(false);
-
     if (data.size > 0) picture->load((const char*)data.b64Data, data.size, data.mimeType);
     else picture->load(data.path);
-
-    TaskScheduler::async(true);
-
     picture->size(data.width, data.height);
     picture->ref();
 
@@ -346,14 +337,11 @@ void LottieImage::prepare()
 
 void LottieImage::update()
 {
-    //Update the picture data
-    TaskScheduler::async(false);
     ARRAY_FOREACH(p, pooler) {
         if (data.size > 0) (*p)->load((const char*)data.b64Data, data.size, data.mimeType);
         else (*p)->load(data.path);
         (*p)->size(data.width, data.height);
     }
-    TaskScheduler::async(true);
 }
 
 
