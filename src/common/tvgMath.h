@@ -115,6 +115,12 @@ static inline void identity(Matrix* m)
 }
 
 
+static inline constexpr const Matrix identity()
+{
+    return {1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f};
+}
+
+
 static inline void scale(Matrix* m, const Point& p)
 {
     m->e11 *= p.x;
