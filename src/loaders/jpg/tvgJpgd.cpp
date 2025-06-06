@@ -40,7 +40,6 @@
 #include "tvgJpgd.h"
 
 #ifdef _MSC_VER
-  #pragma warning (disable : 4611) // warning C4611: interaction between '_setjmp' and C++ object destruction is non-portable
   #define JPGD_NORETURN __declspec(noreturn)
 #elif defined(__GNUC__)
   #define JPGD_NORETURN __attribute__ ((noreturn))
@@ -198,7 +197,6 @@ private:
       char m_data[1];
     };
 
-    jmp_buf m_jmp_state;
     mem_block *m_pMem_blocks;
     int m_image_x_size;
     int m_image_y_size;
@@ -1093,13 +1091,12 @@ void jpeg_decoder::free_all_blocks()
 }
 
 
-// This method handles all errors. It will never return.
-// It could easily be changed to use C++ exceptions.
+// This method handles all errors by throwing an exception
 JPGD_NORETURN void jpeg_decoder::stop_decoding(jpgd_status status)
 {
     m_error_code = status;
     free_all_blocks();
-    longjmp(m_jmp_state, status);
+    throw JpegDecoderException(status);
 }
 
 
@@ -2182,58 +2179,63 @@ int jpeg_decoder::decode(const void** pScan_line, uint32_t* pScan_line_len)
 {
     if ((m_error_code) || (!m_ready_flag)) return JPGD_FAILED;
     if (m_total_lines_left == 0) return JPGD_DONE;
-    if (m_mcu_lines_left == 0) {
-        if (setjmp(m_jmp_state)) return JPGD_FAILED;
-        if (m_progressive_flag) load_next_row();
-        else decode_next_row();
-        // Find the EOI marker if that was the last row.
-        if (m_total_lines_left <= m_max_mcu_y_size) find_eoi();
-        m_mcu_lines_left = m_max_mcu_y_size;
-    }
 
-    if (m_freq_domain_chroma_upsample) {
-        expanded_convert();
-        *pScan_line = m_pScan_line_0;
-    } else {
-        switch (m_scan_type) {
-            case JPGD_YH2V2: {
-                if ((m_mcu_lines_left & 1) == 0) {
-                    H2V2Convert();
-                    *pScan_line = m_pScan_line_0;
+    try {
+        if (m_mcu_lines_left == 0) {
+            if (m_progressive_flag) load_next_row();
+            else decode_next_row();
+            // Find the EOI marker if that was the last row.
+            if (m_total_lines_left <= m_max_mcu_y_size) find_eoi();
+            m_mcu_lines_left = m_max_mcu_y_size;
+        }
+
+        if (m_freq_domain_chroma_upsample) {
+            expanded_convert();
+            *pScan_line = m_pScan_line_0;
+        } else {
+            switch (m_scan_type) {
+                case JPGD_YH2V2: {
+                    if ((m_mcu_lines_left & 1) == 0) {
+                        H2V2Convert();
+                        *pScan_line = m_pScan_line_0;
+                    }
+                    else *pScan_line = m_pScan_line_1;
+                    break;
                 }
-              else *pScan_line = m_pScan_line_1;
-              break;
-            }
-            case JPGD_YH2V1: {
-                H2V1Convert();
-                *pScan_line = m_pScan_line_0;
-                break;
-            }
-            case JPGD_YH1V2: {
-                if ((m_mcu_lines_left & 1) == 0) {
-                    H1V2Convert();
+                case JPGD_YH2V1: {
+                    H2V1Convert();
                     *pScan_line = m_pScan_line_0;
-                } else *pScan_line = m_pScan_line_1;
-                break;
-            }
-            case JPGD_YH1V1: {
-                H1V1Convert();
-                *pScan_line = m_pScan_line_0;
-                break;
-            }
-            case JPGD_GRAYSCALE: {
-                gray_convert();
-                *pScan_line = m_pScan_line_0;
-                break;
+                    break;
+                }
+                case JPGD_YH1V2: {
+                    if ((m_mcu_lines_left & 1) == 0) {
+                        H1V2Convert();
+                        *pScan_line = m_pScan_line_0;
+                    } else *pScan_line = m_pScan_line_1;
+                    break;
+                }
+                case JPGD_YH1V1: {
+                    H1V1Convert();
+                    *pScan_line = m_pScan_line_0;
+                    break;
+                }
+                case JPGD_GRAYSCALE: {
+                    gray_convert();
+                    *pScan_line = m_pScan_line_0;
+                    break;
+                }
             }
         }
+
+        *pScan_line_len = m_real_dest_bytes_per_scan_line;
+        m_mcu_lines_left--;
+        m_total_lines_left--;
+
+        return JPGD_SUCCESS;
+    } catch (const JpegDecoderException& e) {
+        m_error_code = e.getStatus();
+        return JPGD_FAILED;
     }
-
-    *pScan_line_len = m_real_dest_bytes_per_scan_line;
-    m_mcu_lines_left--;
-    m_total_lines_left--;
-
-    return JPGD_SUCCESS;
 }
 
 
@@ -2795,8 +2797,11 @@ void jpeg_decoder::decode_init(jpeg_decoder_stream *pStream)
 
 jpeg_decoder::jpeg_decoder(jpeg_decoder_stream *pStream)
 {
-    if (setjmp(m_jmp_state)) return;
-    decode_init(pStream);
+    try {
+        decode_init(pStream);
+    } catch (const JpegDecoderException& e) {
+        m_error_code = e.getStatus();
+    }
 }
 
 
@@ -2804,12 +2809,15 @@ int jpeg_decoder::begin_decoding()
 {
     if (m_ready_flag) return JPGD_SUCCESS;
     if (m_error_code) return JPGD_FAILED;
-    if (setjmp(m_jmp_state)) return JPGD_FAILED;
 
-    decode_start();
-    m_ready_flag = true;
-
-    return JPGD_SUCCESS;
+    try {
+        decode_start();
+        m_ready_flag = true;
+        return JPGD_SUCCESS;
+    } catch (const JpegDecoderException& e) {
+        m_error_code = e.getStatus();
+        return JPGD_FAILED;
+    }
 }
 
 

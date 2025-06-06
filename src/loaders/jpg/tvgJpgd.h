@@ -25,7 +25,64 @@
 #ifndef _TVG_JPGD_H_
 #define _TVG_JPGD_H_
 
+#include <exception>
+#include <string>
+
 class jpeg_decoder;
+
+class JpegDecoderException : public std::exception {
+private:
+    jpgd_status status;
+    std::string message;
+
+public:
+    explicit JpegDecoderException(jpgd_status status) : status(status) {
+        switch (status) {
+            case JPGD_BAD_DHT_COUNTS: message = "Bad DHT counts"; break;
+            case JPGD_BAD_DHT_INDEX: message = "Bad DHT index"; break;
+            case JPGD_BAD_DHT_MARKER: message = "Bad DHT marker"; break;
+            case JPGD_BAD_DQT_MARKER: message = "Bad DQT marker"; break;
+            case JPGD_BAD_DQT_TABLE: message = "Bad DQT table"; break;
+            case JPGD_BAD_PRECISION: message = "Bad precision"; break;
+            case JPGD_BAD_HEIGHT: message = "Bad height"; break;
+            case JPGD_BAD_WIDTH: message = "Bad width"; break;
+            case JPGD_TOO_MANY_COMPONENTS: message = "Too many components"; break;
+            case JPGD_BAD_SOF_LENGTH: message = "Bad SOF length"; break;
+            case JPGD_BAD_VARIABLE_MARKER: message = "Bad variable marker"; break;
+            case JPGD_BAD_DRI_LENGTH: message = "Bad DRI length"; break;
+            case JPGD_BAD_SOS_LENGTH: message = "Bad SOS length"; break;
+            case JPGD_BAD_SOS_COMP_ID: message = "Bad SOS component ID"; break;
+            case JPGD_W_EXTRA_BYTES_BEFORE_MARKER: message = "Extra bytes before marker"; break;
+            case JPGD_NO_ARITHMETIC_SUPPORT: message = "No arithmetic coding support"; break;
+            case JPGD_UNEXPECTED_MARKER: message = "Unexpected marker"; break;
+            case JPGD_NOT_JPEG: message = "Not a JPEG file"; break;
+            case JPGD_UNSUPPORTED_MARKER: message = "Unsupported marker"; break;
+            case JPGD_BAD_DQT_LENGTH: message = "Bad DQT length"; break;
+            case JPGD_TOO_MANY_BLOCKS: message = "Too many blocks"; break;
+            case JPGD_UNDEFINED_QUANT_TABLE: message = "Undefined quantization table"; break;
+            case JPGD_UNDEFINED_HUFF_TABLE: message = "Undefined Huffman table"; break;
+            case JPGD_NOT_SINGLE_SCAN: message = "Not a single scan"; break;
+            case JPGD_UNSUPPORTED_COLORSPACE: message = "Unsupported colorspace"; break;
+            case JPGD_UNSUPPORTED_SAMP_FACTORS: message = "Unsupported sampling factors"; break;
+            case JPGD_DECODE_ERROR: message = "Decode error"; break;
+            case JPGD_BAD_RESTART_MARKER: message = "Bad restart marker"; break;
+            case JPGD_ASSERTION_ERROR: message = "Assertion error"; break;
+            case JPGD_BAD_SOS_SPECTRAL: message = "Bad SOS spectral"; break;
+            case JPGD_BAD_SOS_SUCCESSIVE: message = "Bad SOS successive"; break;
+            case JPGD_STREAM_READ: message = "Stream read error"; break;
+            case JPGD_NOTENOUGHMEM: message = "Not enough memory"; break;
+            default: message = "Unknown error"; break;
+        }
+    }
+
+    const char* what() const noexcept override {
+        return message.c_str();
+    }
+
+    jpgd_status getStatus() const noexcept {
+        return status;
+    }
+};
 
 jpeg_decoder* jpgdHeader(const char* data, int size, int* width, int* height);
 jpeg_decoder* jpgdHeader(const char* filename, int* width, int* height);

@@ -72,13 +72,21 @@ bool JpgLoader::open(const char* path)
 {
 #ifdef THORVG_FILE_IO_SUPPORT
     int width, height;
-    decoder = jpgdHeader(path, &width, &height);
-    if (!decoder) return false;
+    try {
+        decoder = jpgdHeader(path, &width, &height);
+        if (!decoder) return false;
 
-    w = static_cast<float>(width);
-    h = static_cast<float>(height);
+        w = static_cast<float>(width);
+        h = static_cast<float>(height);
 
-    return true;
+        return true;
+    } catch (const JpegDecoderException& e) {
+        if (decoder) {
+            jpgdDelete(decoder);
+            decoder = nullptr;
+        }
+        return false;
+    }
 #else
     return false;
 #endif
@@ -98,15 +106,32 @@ bool JpgLoader::open(const char* data, uint32_t size, TVG_UNUSED const char* rpa
     }
 
     int width, height;
-    decoder = jpgdHeader(this->data, size, &width, &height);
-    if (!decoder) return false;
+    try {
+        decoder = jpgdHeader(this->data, size, &width, &height);
+        if (!decoder) {
+            if (freeData) {
+                tvg::free(this->data);
+                this->data = nullptr;
+            }
+            return false;
+        }
 
-    w = static_cast<float>(width);
-    h = static_cast<float>(height);
+        w = static_cast<float>(width);
+        h = static_cast<float>(height);
 
-    return true;
+        return true;
+    } catch (const JpegDecoderException& e) {
+        if (decoder) {
+            jpgdDelete(decoder);
+            decoder = nullptr;
+        }
+        if (freeData) {
+            tvg::free(this->data);
+            this->data = nullptr;
+        }
+        return false;
+    }
 }
-
 
 
 bool JpgLoader::read()
@@ -115,9 +140,12 @@ bool JpgLoader::read()
 
     if (!decoder || w == 0 || h == 0) return false;
 
-    TaskScheduler::request(this);
-
-    return true;
+    try {
+        TaskScheduler::request(this);
+        return true;
+    } catch (const JpegDecoderException& e) {
+        return false;
+    }
 }
 
 
