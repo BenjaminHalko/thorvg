@@ -61,8 +61,17 @@ bool RenderMethod::viewport(const RenderRegion& vp)
 // used as a temporary buffer
 RenderPath& RenderPath::scratch()
 {
+#ifdef THORVG_THREAD_SUPPORT
     static thread_local RenderPath dbuffers[3];  // tripple-buffering
     static thread_local int idx = 0;
+#else
+    // Single-threaded build: `thread_local` requires libstdc++ TLS
+    // init machinery (pthread_key_create, __cxa_thread_atexit) that
+    // is unavailable bare-metal.  A plain function-local static is
+    // semantically equivalent when there is only one thread.
+    static RenderPath dbuffers[3];  // tripple-buffering
+    static int idx = 0;
+#endif
     if (++idx > 2) idx = 0;
     dbuffers[(idx)].clear();
     return dbuffers[(int)idx];
