@@ -26,7 +26,14 @@
 /* Internal Class Implementation                                        */
 /************************************************************************/
 
+#ifdef THORVG_THREAD_SUPPORT
 static thread_local SwMpool* _pool = nullptr;
+#else
+// `thread_local` requires libstdc++ TLS init, which on bare-metal
+// calls into pthread stubs before `main()` and aborts.  Single-
+// threaded builds use a plain global.
+static SwMpool* _pool = nullptr;
+#endif
 static Array<SwMpool*> _pools;
 static uint32_t _threads = 0;
 static StrictKey _key;
