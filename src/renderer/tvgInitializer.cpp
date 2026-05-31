@@ -64,9 +64,11 @@ static bool _buildVersionInfo(uint32_t* major, uint32_t* minor, uint32_t* micro)
 
     uint32_t microVal = atoi(p);
 
-    char sum[7];
-    snprintf(sum, sizeof(sum), "%d%02d%02d", majorVal, minorVal, microVal);
-    _version = atoi(sum);
+    // Equivalent to snprintf("%d%02d%02d") + atoi, but does not pull
+    // in snprintf -- saves the bare-metal libc shim a printf
+    // implementation.  major * 10000 + minor * 100 + micro encodes
+    // X.YY.ZZ exactly the way the original formatter would have.
+    _version = (uint16_t)(majorVal * 10000 + minorVal * 100 + microVal);
 
     if (major) *major = majorVal;
     if (minor) *minor = minorVal;
