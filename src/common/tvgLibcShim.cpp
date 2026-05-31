@@ -23,10 +23,16 @@
  */
 
 #include <stddef.h>
+#include <stdarg.h>
 
 #define TVG_SHIM_WEAK __attribute__((weak))
 
 extern "C" {
+
+/* malloc is provided by the consumer (esp-alloc on esp-hal, the
+ * HAL's own heap on Cortex-M, …) — declared here so `strdup` below
+ * can call into it.  No weak attribute: we *require* the symbol. */
+extern void* malloc(size_t);
 
 /* ── <ctype.h> ASCII implementations ───────────────────────────────── *
  *
@@ -375,6 +381,156 @@ TVG_SHIM_WEAK int __xpg_strerror_r(int, char* buf, size_t buflen)
 {
     if (buf && buflen) buf[0] = '\0';
     return 0;
+}
+
+/* ── Lottie loader extras ──────────────────────────────────────────── */
+
+/* atexit: even with `-fno-use-cxa-atexit`, GCC emits an `atexit()`
+ * call to register the destructor of any function-local static of
+ * non-trivial type (e.g. `tvgRender.cpp`'s `RenderPath::scratch`'s
+ * `static RenderPath dbuffers[3]`).  On bare metal `main()` never
+ * returns, so destructors of statics never run.  A no-op stub that
+ * succeeds is the correct lie. */
+TVG_SHIM_WEAK int atexit(void (*)(void))
+{
+    return 0;
+}
+
+/* strdup: thorvg's Lottie parser dup's font names.  Allocates via
+ * the consumer-supplied malloc (esp-alloc on esp-hal, etc.). */
+TVG_SHIM_WEAK char* strdup(const char* s)
+{
+    size_t n = strlen(s) + 1;
+    char* p = (char*)malloc(n);
+    if (!p) return NULL;
+    for (size_t i = 0; i < n; ++i) p[i] = s[i];
+    return p;
+}
+
+/* rand: thorvg's Lottie parser uses it for text-range randomisation.
+ * Visual-only — a tiny LCG gives "some" variety without the libc
+ * footprint.  Park-Miller would be more correct but isn't worth the
+ * extra code for what is decoration. */
+TVG_SHIM_WEAK int rand(void)
+{
+    static unsigned long _seed = 12345;
+    _seed = _seed * 1103515245u + 12345u;
+    return (int)((_seed >> 16) & 0x7fff);
+}
+
+/* ── Minimal vsnprintf / snprintf ──────────────────────────────────────
+ *
+ * Supports the format specifiers thorvg's loaders actually use:
+ *   %s         (NUL-terminated string)
+ *   %d         (signed decimal int)
+ *   %.Nf       (double with N decimal places of fixed-point precision)
+ *   %%         (literal '%')
+ *
+ * Unsupported specifiers are silently dropped.  Width and the full
+ * complement of flags are deliberately unimplemented — adding them is
+ * straightforward but would bloat the shim for call sites thorvg
+ * doesn't have today.  Return value follows C99: the number of
+ * characters that *would* have been written if `bufsz` were
+ * unbounded, not the number actually written.  Always NUL-terminates
+ * when `bufsz > 0`.
+ */
+
+static void _shim_put(char* buf, size_t bufsz, size_t* i, char c)
+{
+    if (*i + 1 < bufsz) buf[*i] = c;
+    ++*i;
+}
+
+static void _shim_puts(char* buf, size_t bufsz, size_t* i, const char* s)
+{
+    while (*s) _shim_put(buf, bufsz, i, *s++);
+}
+
+static void _shim_put_uint(char* buf, size_t bufsz, size_t* i,
+                           unsigned long long v, int width, char pad)
+{
+    char tmp[24];
+    int len = 0;
+    if (v == 0) tmp[len++] = '0';
+    else while (v) { tmp[len++] = (char)('0' + (v % 10u)); v /= 10u; }
+    while (len < width) { _shim_put(buf, bufsz, i, pad); --width; }
+    while (len > 0) _shim_put(buf, bufsz, i, tmp[--len]);
+}
+
+TVG_SHIM_WEAK int vsnprintf(char* buf, size_t bufsz, const char* fmt, va_list ap)
+{
+    size_t i = 0;
+
+    while (*fmt) {
+        if (*fmt != '%') { _shim_put(buf, bufsz, &i, *fmt++); continue; }
+        ++fmt;
+
+        int prec = -1;
+        if (*fmt == '.') {
+            ++fmt;
+            prec = 0;
+            while (*fmt >= '0' && *fmt <= '9') prec = prec * 10 + (*fmt++ - '0');
+        }
+
+        char spec = *fmt++;
+        switch (spec) {
+        case 's': {
+            const char* s = va_arg(ap, const char*);
+            _shim_puts(buf, bufsz, &i, s ? s : "(null)");
+            break;
+        }
+        case 'd': {
+            int v = va_arg(ap, int);
+            unsigned uv;
+            if (v < 0) { _shim_put(buf, bufsz, &i, '-'); uv = (unsigned)(-(long)v); }
+            else uv = (unsigned)v;
+            _shim_put_uint(buf, bufsz, &i, uv, 0, ' ');
+            break;
+        }
+        case 'f': {
+            double d = va_arg(ap, double);
+            if (prec < 0) prec = 6;
+            if (d < 0) { _shim_put(buf, bufsz, &i, '-'); d = -d; }
+            // Fixed-point conversion: separate whole and fractional parts
+            // and scale the fractional part to `prec` decimal places.
+            double mul = 1.0;
+            for (int j = 0; j < prec; ++j) mul *= 10.0;
+            unsigned long long whole = (unsigned long long)d;
+            double frac = (d - (double)whole) * mul;
+            unsigned long long fracInt = (unsigned long long)(frac + 0.5);
+            if (fracInt >= (unsigned long long)mul) { whole++; fracInt = 0; }
+            _shim_put_uint(buf, bufsz, &i, whole, 0, ' ');
+            if (prec > 0) {
+                _shim_put(buf, bufsz, &i, '.');
+                _shim_put_uint(buf, bufsz, &i, fracInt, prec, '0');
+            }
+            break;
+        }
+        case '%':
+            _shim_put(buf, bufsz, &i, '%');
+            break;
+        default:
+            // Unsupported specifier: emit it verbatim so the caller's
+            // output is still self-describing.
+            _shim_put(buf, bufsz, &i, '%');
+            _shim_put(buf, bufsz, &i, spec);
+            break;
+        }
+    }
+
+    if (bufsz > 0) {
+        buf[i < bufsz ? i : bufsz - 1] = '\0';
+    }
+    return (int)i;
+}
+
+TVG_SHIM_WEAK int snprintf(char* buf, size_t bufsz, const char* fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    int r = vsnprintf(buf, bufsz, fmt, ap);
+    va_end(ap);
+    return r;
 }
 
 } /* extern "C" */
