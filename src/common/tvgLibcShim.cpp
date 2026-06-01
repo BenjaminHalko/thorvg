@@ -543,4 +543,32 @@ TVG_SHIM_WEAK int snprintf(char* buf, size_t bufsz, const char* fmt, ...)
     return r;
 }
 
+/* ── <stdlib.h> bsearch ─────────────────────────────────────────────── *
+ *
+ * Used by thorvg's SFNT/TTF font loader to look up tables and glyph
+ * positioning entries in the sorted directories baked into TrueType
+ * files (`tvgSfntReader.cpp:40`, `tvgTtfReader.cpp:326`).  The base
+ * array is guaranteed sorted by `compar`; this is a textbook
+ * lower-bound-style binary search returning a pointer to the matching
+ * element or NULL.
+ */
+TVG_SHIM_WEAK void* bsearch(const void* key, const void* base, size_t nmemb, size_t size,
+                            int (*compar)(const void*, const void*))
+{
+    const char* lo = (const char*)base;
+    while (nmemb > 0) {
+        size_t mid = nmemb / 2;
+        const char* p = lo + mid * size;
+        int cmp = compar(key, p);
+        if (cmp == 0) return (void*)p;
+        if (cmp > 0) {
+            lo = p + size;
+            nmemb -= mid + 1;
+        } else {
+            nmemb = mid;
+        }
+    }
+    return nullptr;
+}
+
 } /* extern "C" */
