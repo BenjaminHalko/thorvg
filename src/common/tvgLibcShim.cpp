@@ -374,6 +374,16 @@ TVG_SHIM_WEAK unsigned int arc4random(void)
     return 0;
 }
 
+/* strerror: pulled in by some libstdc++ multilibs' `system_error.o`
+ * (not the same as `__xpg_strerror_r` below — both can be referenced
+ * depending on which libstdc++ variant the toolchain ships).  Return
+ * an empty string; thorvg never actually calls this. */
+TVG_SHIM_WEAK const char* strerror(int)
+{
+    static const char empty[] = "";
+    return empty;
+}
+
 /* __xpg_strerror_r: POSIX/XSI strerror_r variant referenced by
  * libstdc++'s `generic_error_category::message`.  We have no error
  * string table on bare metal — return success with an empty buffer. */
