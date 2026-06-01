@@ -543,6 +543,77 @@ TVG_SHIM_WEAK int snprintf(char* buf, size_t bufsz, const char* fmt, ...)
     return r;
 }
 
+/* ── <setjmp.h> setjmp / longjmp (riscv32 ilp32 soft-float) ────────── *
+ *
+ * Needed by JerryScript's parser error-recovery path (used in
+ * `thorvg/expressions` builds): `js-parser.cpp:1831`,
+ * `js-scanner.cpp:2380/2439`, `js-scanner-util.cpp:64/92`.  Newlib's
+ * riscv32 `libc.a` doesn't export these in the multilib variants we
+ * link (`rv32imac_zicsr_zifencei/ilp32/no-rtti`), and we deliberately
+ * avoid pulling all of libc.a (it drags in stack_protector objects
+ * that collide with esp-hal).  So we implement them ourselves, in
+ * naked-function asm, matching newlib's `jmp_buf` layout
+ * (`long[_JBLEN=14]`: ra, sp, s0-s11).  Soft-float only — rv32imac
+ * has no float regs to preserve.
+ *
+ * Other architectures don't compile this block; they need their own
+ * arch-specific setjmp/longjmp or a libc that provides them.
+ */
+#if defined(__riscv) && __riscv_xlen == 32
+
+__attribute__((naked, weak))
+int setjmp(void* /* env */)
+{
+    asm volatile (
+        "sw ra,   0(a0)\n"
+        "sw sp,   4(a0)\n"
+        "sw s0,   8(a0)\n"
+        "sw s1,  12(a0)\n"
+        "sw s2,  16(a0)\n"
+        "sw s3,  20(a0)\n"
+        "sw s4,  24(a0)\n"
+        "sw s5,  28(a0)\n"
+        "sw s6,  32(a0)\n"
+        "sw s7,  36(a0)\n"
+        "sw s8,  40(a0)\n"
+        "sw s9,  44(a0)\n"
+        "sw s10, 48(a0)\n"
+        "sw s11, 52(a0)\n"
+        "li a0, 0\n"
+        "ret\n"
+    );
+}
+
+__attribute__((naked, noreturn, weak))
+void longjmp(void* /* env */, int /* val */)
+{
+    asm volatile (
+        "lw ra,   0(a0)\n"
+        "lw sp,   4(a0)\n"
+        "lw s0,   8(a0)\n"
+        "lw s1,  12(a0)\n"
+        "lw s2,  16(a0)\n"
+        "lw s3,  20(a0)\n"
+        "lw s4,  24(a0)\n"
+        "lw s5,  28(a0)\n"
+        "lw s6,  32(a0)\n"
+        "lw s7,  36(a0)\n"
+        "lw s8,  40(a0)\n"
+        "lw s9,  44(a0)\n"
+        "lw s10, 48(a0)\n"
+        "lw s11, 52(a0)\n"
+        /* setjmp's contract: longjmp(env, 0) returns 1; otherwise val.
+         * a1 holds `val` per riscv32 ABI; transform to a0.            */
+        "mv a0, a1\n"
+        "bnez a0, 1f\n"
+        "li a0, 1\n"
+        "1:\n"
+        "ret\n"
+    );
+}
+
+#endif /* __riscv && __riscv_xlen == 32 */
+
 /* ── <stdlib.h> bsearch ─────────────────────────────────────────────── *
  *
  * Used by thorvg's SFNT/TTF font loader to look up tables and glyph
