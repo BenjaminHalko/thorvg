@@ -46,7 +46,14 @@ if webp_loader
 endif
 
 if gif_loader
-    subdir('external_gif')
+    if get_option('static')
+        subdir('gif')
+    else
+        subdir('external_gif')
+        if not gif_dep.found()
+            subdir('gif')
+        endif
+    endif
 endif
 
 subdir('raw')
