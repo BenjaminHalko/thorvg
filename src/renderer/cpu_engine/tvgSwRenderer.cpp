@@ -130,7 +130,7 @@ struct SwShapeTask : SwTask
     {
         auto strokeWidth = validStrokeWidth(clipper);
         auto updateShape = flags[0] & (RenderUpdateFlag::Path | RenderUpdateFlag::Transform | RenderUpdateFlag::Clip);
-        auto updateFill = (flags[0] & (RenderUpdateFlag::Color | RenderUpdateFlag::Gradient));
+        auto updateFill = flags[0] & (RenderUpdateFlag::Color | RenderUpdateFlag::Gradient | RenderUpdateFlag::Transform);
 
         //Shape
         if (updateShape) {
@@ -151,16 +151,17 @@ struct SwShapeTask : SwTask
             }
         }
         //Stroke
-        if (updateShape || flags[0] & RenderUpdateFlag::Stroke) {
-            if (strokeWidth > 0.0f) {
-                if (!shapeGenStrokeRle(shape, rshape, transform, clipBox, curBox, renderer->mpool, tid, renderer->antiAlias)) goto err;
+        if (strokeWidth > 0.0f) {
+            auto updateStroke = updateShape || (flags[0] & RenderUpdateFlag::Stroke);
+            if (updateStroke && !shapeGenStrokeRle(shape, rshape, transform, clipBox, curBox, renderer->mpool, tid, renderer->antiAlias)) goto err;
+            auto ctable = flags[0] & RenderUpdateFlag::GradientStroke;
+            if (ctable || flags[0] & RenderUpdateFlag::Transform) {
                 if (auto fill = rshape->strokeFill()) {
-                    auto ctable = (flags[0] & RenderUpdateFlag::GradientStroke) ? true : false;
                     if (!shapeGenStrokeFillColors(shape, fill, transform, renderer->surface, opacity, ctable)) goto err;
                 }
-            } else {
-                shapeDelStroke(shape);
             }
+        } else {
+            shapeDelStroke(shape);
         }
 
         shapeDelOutline(shape);
@@ -777,7 +778,7 @@ bool SwRenderer::render(RenderCompositor* cmp, const RenderEffect* effect, bool 
 
     //TODO: Support grayscale effects.
     if (p->recoverSfc->channelSize != sizeof(uint32_t)) direct = false;
-    
+
     switch (effect->type) {
         case SceneEffect::GaussianBlur: {
             return effectGaussianBlur(p, request(surface->channelSize, true), static_cast<const RenderEffectGaussianBlur*>(effect));
@@ -805,7 +806,7 @@ bool SwRenderer::render(RenderCompositor* cmp, const RenderEffect* effect, bool 
 }
 
 
-void SwRenderer::dispose(RenderEffect* effect) 
+void SwRenderer::dispose(RenderEffect* effect)
 {
     tvg::free(effect->rd);
     effect->rd = nullptr;
