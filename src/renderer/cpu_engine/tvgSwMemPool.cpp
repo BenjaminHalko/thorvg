@@ -36,7 +36,7 @@ static SwMpool* _pool = nullptr;
 #endif
 static Array<SwMpool*> _pools;
 static uint32_t _threads = 0;
-static StrictKey _key;
+static StrictKey& _key = *new StrictKey;  //never destroyed: may be locked during exit
 
 /************************************************************************/
 /* External Class Implementation                                        */

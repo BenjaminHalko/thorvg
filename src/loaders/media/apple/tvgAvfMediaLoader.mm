@@ -42,7 +42,7 @@ static constexpr float TIME_EPSILON = 1.0f / static_cast<float>(TIMESCALE);
 
 static dispatch_queue_t _queue = nullptr;
 static uint32_t _queueRefCnt = 0;
-static StrictKey _queueKey;
+static StrictKey& _queueKey = *new StrictKey;  //never destroyed: may be locked during exit
 
 static dispatch_queue_t _refQueue()
 {
