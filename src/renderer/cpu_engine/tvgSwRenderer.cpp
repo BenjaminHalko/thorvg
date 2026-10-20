@@ -29,7 +29,7 @@
 /************************************************************************/
 
 static int32_t _rendererCnt = -1;
-static StrictKey _rendererMtx;
+static StrictKey& _rendererMtx = *new StrictKey;  //never destroyed: may be locked during exit
 
 struct SwTask : Task
 {
