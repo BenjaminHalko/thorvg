@@ -1,10 +1,11 @@
 # creator-tui: the ThorVG Creator TUI builds
 
-This branch is what Creator TUI builds, through thorvg-rs's `creator-tui-1.1.3` branch. It is
-`fix/exit-globals-1.1.3` (upstream v1.1.3 with our commits) plus a few fixes cherry-picked onto
-it. Each fix is its own commit, the same change as the one on its fix branch.
+This branch is what Creator TUI builds, through thorvg-rs's `creator-tui-1.1.3-conic` branch. It
+is `fix/exit-globals-1.1.3` (upstream v1.1.3 with our commits) plus a few fixes and one feature
+cherry-picked onto it. Each is its own commit, the same change as the one on its own branch.
 
-The `creator-tui` branch is the same on v1.1.2, kept as it was.
+`creator-tui-1.1.3` is this branch without the feature, and `creator-tui` the fixes on v1.1.2,
+both kept as they were.
 
 ## The branches
 
@@ -24,8 +25,11 @@ The `creator-tui` branch is the same on v1.1.2, kept as it was.
   - `fix/text-range-utf8`: text ranges count letters, not UTF-8 bytes.
   - `fix/text-search-glyph-scope`: a lower case letter in all capitals or small capitals is
     looked up as its capital through a buffer still in scope, not a stack slot gone by then.
-- `creator-tui-1.1.3` (this branch): `fix/exit-globals-1.1.3` with each fix branch's commit
-  cherry-picked in that order.
+  - `feat/lottie-conic-gradient`: a gradient of type 3, which Lottie doesn't have, is drawn as
+    a conic gradient around its start, from its end's direction. Creator TUI keeps a conic in its
+    own data and hands ThorVG that type; the file it saves has a radial (type 2) players draw.
+- `creator-tui-1.1.3-conic` (this branch): `fix/exit-globals-1.1.3` with each fix branch's
+  commit cherry-picked in that order, then the feature's.
 
 ## The one overlap
 
@@ -46,13 +50,13 @@ joined into one loop that counts all three:
 
 When a fix branch changes, or one is added:
 
-    git checkout -B creator-tui-1.1.3 origin/fix/exit-globals-1.1.3
+    git checkout -B creator-tui-1.1.3-conic origin/fix/exit-globals-1.1.3
     git cherry-pick -x fix/text-anchor-init fix/text-range-ease-low \
         fix/text-range-random-whole fix/text-range-basis-percent fix/text-range-utf8 \
-        fix/text-search-glyph-scope
+        fix/text-search-glyph-scope feat/lottie-conic-gradient
     # (join the overlap above when the last one stops on it, then: git cherry-pick --continue)
     git cherry-pick -x <this file's commits>
-    git push --force-with-lease origin creator-tui-1.1.3
+    git push --force-with-lease origin creator-tui-1.1.3-conic
 
-Then point thorvg-rs's `creator-tui-1.1.3` branch's `thorvg-sys/thorvg` at the new commit, and
+Then point thorvg-rs's `creator-tui-1.1.3-conic` branch's `thorvg-sys/thorvg` at the new commit, and
 the app's `thorvg-sys` pin at that thorvg-rs commit.
