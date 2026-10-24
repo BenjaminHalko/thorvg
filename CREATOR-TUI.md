@@ -1,0 +1,53 @@
+# creator-tui: the ThorVG Creator TUI builds
+
+This branch is what Creator TUI builds, through thorvg-rs's `creator-tui` branch. It is the
+line the app already pinned, `fix/exit-globals`, plus a few fixes cherry-picked onto it with
+`-x`. Each fix is its own commit, and its message names the commit on its fix branch.
+
+## The branches
+
+- `fix/exit-globals`: the line before this branch. The upstream v1.1 release line with the
+  bare-metal series, plus the fixes that keep ThorVG's static mutexes, memory pools and cached
+  loaders alive past exit.
+- One branch per fix, each a single commit on upstream `thorvg/thorvg` main, kept there so it
+  can be opened upstream as a pull request on its own:
+  - `fix/text-anchor-init`: a text layer's alignment anchor starts at (0, 0) when the file has
+    no `m.a`, instead of being left uninitialized.
+  - `fix/text-range-ease-low`: a text range with an ease low and no ease high no longer eases
+    through a null pointer.
+  - `fix/text-range-random-whole`: a randomized text range as wide as the text no longer
+    divides by zero.
+  - `fix/text-range-basis-percent`: a text range in percent counts the units of its basis
+    (words, lines, characters without spaces), not every character.
+  - `fix/text-range-utf8`: text ranges count letters, not UTF-8 bytes.
+- `creator-tui` (this branch): `fix/exit-globals` with each fix branch's commit cherry-picked
+  in that order.
+
+## The one overlap
+
+`fix/text-range-basis-percent` and `fix/text-range-utf8` both change `RenderText` in
+`src/loaders/lottie/tvgLottieBuilder.h`. One adds `nSpaces` and `nLines`, counted in its
+constructor. The other turns `nChars` from `strlen` into a count of letters. Here the two are
+joined into one loop that counts all three:
+
+    int nChars = 0, nSpaces = 0, nLines = 1;
+    ...
+    for (auto c = p; *c; ++c) {
+        if ((*c & 0xc0) != 0x80) ++nChars;
+        if (*c == ' ') ++nSpaces;
+        else if (*c == 13 || *c == 3) ++nLines;
+    }
+
+## Rebuilding it
+
+When a fix branch changes, or one is added:
+
+    git checkout -B creator-tui origin/fix/exit-globals
+    git cherry-pick -x fix/text-anchor-init fix/text-range-ease-low \
+        fix/text-range-random-whole fix/text-range-basis-percent fix/text-range-utf8
+    # (join the overlap above when the last one stops on it, then: git cherry-pick --continue)
+    git cherry-pick -x <this file's commit>
+    git push --force-with-lease origin creator-tui
+
+Then point thorvg-rs's `creator-tui` branch's `thorvg-sys/thorvg` at the new commit, and
+the app's `thorvg-sys` pin at that thorvg-rs commit.
