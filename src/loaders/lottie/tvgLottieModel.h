@@ -860,7 +860,7 @@ struct LottieGradient : LottieObject
     LottieFloat angle = 0.0f;
     LottieOpacity opacity = 255;
     LottieColorStop colorStops;
-    uint8_t id = 0; //1: linear, 2: radial
+    uint8_t id = 0; //1: linear, 2: radial, 3: conic (an extension)
     bool opaque = true; //fully opaque or not
 };
 

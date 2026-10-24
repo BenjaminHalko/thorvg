@@ -460,6 +460,10 @@ Fill* LottieGradient::fill(float frameNo, uint8_t opacity, LottieTween& tween, L
     if (id == 1) {
         fill = LinearGradient::gen();
         static_cast<LinearGradient*>(fill)->linear(s.x, s.y, e.x, e.y);
+    //Conic Gradient (not in the Lottie spec): a full turn around the start, from the end's direction
+    } else if (id == 3) {
+        fill = ConicGradient::gen();
+        static_cast<ConicGradient*>(fill)->conic(s.x, s.y, rad2deg(tvg::atan(e - s)));
     //Radial Gradient
     } else {
         fill = RadialGradient::gen();
