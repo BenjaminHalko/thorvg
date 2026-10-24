@@ -53,17 +53,18 @@ struct RenderText
     int line = 0, space = 0, idx = 0;
     float lineSpace = 0.0f, totalLineSpace = 0.0f;
     char *p;  //current processing character
-    int nChars, nSpaces = 0, nLines = 1;
+    int nChars = 0, nSpaces = 0, nLines = 1;
     float scale;
     Scene* textScene;
     Scene* lineScene;
     float capScale, firstMargin;
     LottieTextFollowPath* follow;
 
-    RenderText(LottieText* text, const TextDocument& doc) : p(doc.text), nChars(strlen(p)), scale(doc.size), textScene(Scene::gen()), lineScene(Scene::gen())
+    RenderText(LottieText* text, const TextDocument& doc) : p(doc.text), scale(doc.size), textScene(Scene::gen()), lineScene(Scene::gen())
     {
-        //the units text ranges count, by their basis
+        //letters (not bytes: a UTF-8 letter's first byte isn't 10xxxxxx), and the units text ranges count by their basis
         for (auto c = p; *c; ++c) {
+            if ((*c & 0xc0) != 0x80) ++nChars;
             if (*c == ' ') ++nSpaces;
             else if (*c == 13 || *c == 3) ++nLines;
         }
