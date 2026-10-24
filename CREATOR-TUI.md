@@ -20,6 +20,8 @@ line the app already pinned, `fix/exit-globals`, plus a few fixes cherry-picked 
   - `fix/text-range-basis-percent`: a text range in percent counts the units of its basis
     (words, lines, characters without spaces), not every character.
   - `fix/text-range-utf8`: text ranges count letters, not UTF-8 bytes.
+  - `fix/text-search-glyph-scope`: a lower case letter in all capitals or small capitals is
+    looked up as its capital through a buffer still in scope, not a stack slot gone by then.
 - `creator-tui` (this branch): `fix/exit-globals` with each fix branch's commit cherry-picked
   in that order.
 
@@ -44,9 +46,10 @@ When a fix branch changes, or one is added:
 
     git checkout -B creator-tui origin/fix/exit-globals
     git cherry-pick -x fix/text-anchor-init fix/text-range-ease-low \
-        fix/text-range-random-whole fix/text-range-basis-percent fix/text-range-utf8
+        fix/text-range-random-whole fix/text-range-basis-percent fix/text-range-utf8 \
+        fix/text-search-glyph-scope
     # (join the overlap above when the last one stops on it, then: git cherry-pick --continue)
-    git cherry-pick -x <this file's commit>
+    git cherry-pick -x <this file's commits>
     git push --force-with-lease origin creator-tui
 
 Then point thorvg-rs's `creator-tui` branch's `thorvg-sys/thorvg` at the new commit, and
