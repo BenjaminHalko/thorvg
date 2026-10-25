@@ -347,10 +347,14 @@ void LottieParser::getInterpolatorValue(float& val, float& val2)
 {
     if (peekType() == kArrayType) {
         enterArray();
-        if (nextArrayValue()) val = val2 = getFloat();
-        if (nextArrayValue()) val2 = getFloat();
-        //discard rest
-        while (nextArrayValue()) getFloat();
+        if (nextArrayValue()) {
+            val = val2 = getFloat();
+            if (nextArrayValue()) {
+                val2 = getFloat();
+                //discard rest
+                while (nextArrayValue()) getFloat();
+            }
+        }
     } else {
         val = val2 = getFloat();
     }
