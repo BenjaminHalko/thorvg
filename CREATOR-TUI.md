@@ -26,6 +26,9 @@ them each; both are folded in here, and are kept only until nothing points at th
   - `fix/text-range-utf8`: text ranges count letters, not UTF-8 bytes.
   - `fix/text-search-glyph-scope`: a lower case letter in all capitals or small capitals is
     looked up as its capital through a buffer still in scope, not a stack slot gone by then.
+  - `fix/neon-alpha-blend`: the NEON `ALPHA_BLEND` scales by `a + 1` as the scalar and AVX ones do,
+    so a file draws the same with NEON as without (it left an opaque pixel under a translucent
+    one at alpha 254).
   - `feat/lottie-conic-gradient`: a gradient of type 3, which Lottie doesn't have, is drawn as
     a conic gradient around its start, from its end's direction. Creator TUI keeps a conic in its
     own data and hands ThorVG that type; the file it saves has a radial (type 2) players draw.
@@ -33,7 +36,7 @@ them each; both are folded in here, and are kept only until nothing points at th
   yet): every scissor rect in `WgCompositor` is clamped to the render target, as wgpu-native
   aborts the process on one outside it.
 - `creator-tui-1.1.3` (this branch): `fix/exit-globals-1.1.3` with each fix branch's commit
-  cherry-picked in that order, then the scissor clamp, then the conic gradient.
+  cherry-picked in that order, then the scissor clamp, the conic gradient and the NEON fix.
 
 ## The one overlap
 
@@ -66,7 +69,7 @@ under a name of its own rather than forced over this one):
         fix/text-range-random-whole fix/text-range-basis-percent fix/text-range-utf8 \
         fix/text-search-glyph-scope
     # (join the overlap above when the last one stops on it, then: git cherry-pick --continue)
-    git cherry-pick -x a5acae45 feat/lottie-conic-gradient
+    git cherry-pick -x a5acae45 feat/lottie-conic-gradient fix/neon-alpha-blend
     git cherry-pick -x <this file's commits>
 
 Then point thorvg-rs's `creator-tui-1.1.3` branch's `thorvg-sys/thorvg` at the new commit, and
