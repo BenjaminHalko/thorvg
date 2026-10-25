@@ -38,9 +38,12 @@ them each; both are folded in here, and are kept only until nothing points at th
   - `fix/wg-texture-target-format`: a texture target is drawn in its own format, BGRA8 or
     RGBA8, rather than always BGRA8, so Creator TUI's stage comes back as RGBA without a swap
     on the CPU.
+  - `fix/gaussian-row-int`: the scalar gaussian blur row's bounds are `int`, so `clamp()`
+    finds one type for them where `int32_t` is `long` (riscv32, which thorvg-rs's bare-metal CI
+    builds), rather than failing to compile there.
 - `creator-tui-1.1.3` (this branch): `fix/exit-globals-1.1.3` with each fix branch's commit
-  cherry-picked in that order, then the scissor clamp, the conic gradient, the NEON fix and the
-  texture target format.
+  cherry-picked in that order, then the scissor clamp, the conic gradient, the NEON fix, the
+  texture target format and the gaussian row's bounds.
 
 The WebGPU fixes reach Creator TUI's GPU build as `crates/tui/gpu/patches/` (its build.py builds
 upstream v1.1.3 with them); the CPU build doesn't compile the WebGPU engine.
@@ -77,7 +80,7 @@ under a name of its own rather than forced over this one):
         fix/text-search-glyph-scope
     # (join the overlap above when the last one stops on it, then: git cherry-pick --continue)
     git cherry-pick -x a5acae45 feat/lottie-conic-gradient fix/neon-alpha-blend \
-        fix/wg-texture-target-format
+        fix/wg-texture-target-format fix/gaussian-row-int
     git cherry-pick -x <this file's commits>
 
 Then point thorvg-rs's `creator-tui-1.1.3` branch's `thorvg-sys/thorvg` at the new commit, and
