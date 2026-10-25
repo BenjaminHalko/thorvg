@@ -51,7 +51,7 @@ them each; both are folded in here, and are kept only until nothing points at th
     its color stops are the same, rather than making and uploading it again on every update.
   - `fix/lottie-per-dimension-easing`: a keyframe whose handles have a value for each dimension
     (`"x": [0.8, 0.1]`, as After Effects writes them) eases a point's y by its own, rather than by
-    x's.
+    x's; a move whose spatial tangents are both zero is straight, not a curve.
 - `creator-tui-1.1.3` (this branch): `fix/exit-globals-1.1.3` with each fix branch's commit
   cherry-picked in that order, then the scissor clamp, the conic gradient, the NEON fix, the
   texture target format, the gaussian row's bounds, the bezier segments, the threaded geometry,
