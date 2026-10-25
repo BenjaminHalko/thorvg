@@ -124,6 +124,8 @@ struct LottieVectorFrame
 
     void prepare(LottieVectorFrame* next)
     {
+        //zero tangents make no curve: a straight move (whose dimensions may ease on their own)
+        if (hasTangent && tvg::zero(outTangent) && tvg::zero(inTangent)) hasTangent = false;
         Bezier bz = {value, value + outTangent, next->value + inTangent, next->value};
         length = bz.lengthApprox();
     }
