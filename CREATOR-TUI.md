@@ -41,9 +41,16 @@ them each; both are folded in here, and are kept only until nothing points at th
   - `fix/gaussian-row-int`: the scalar gaussian blur row's bounds are `int`, so `clamp()`
     finds one type for them where `int32_t` is `long` (riscv32, which thorvg-rs's bare-metal CI
     builds), rather than failing to compile there.
+  - `fix/bezier-segments-no-alloc`: `Bezier::segments()` keeps the halves still to flatten in a
+    small array on the stack instead of an `Array` allocated and grown on every call (the GL and
+    WebGPU tessellators call it for every curve; the CPU engine doesn't).
+  - `fix/wg-threaded-shape-geometry`: the WebGPU engine makes its shapes' geometry on the task
+    scheduler's threads, as the CPU engine prepares its shapes, rather than one after another on
+    the calling thread.
 - `creator-tui-1.1.3` (this branch): `fix/exit-globals-1.1.3` with each fix branch's commit
   cherry-picked in that order, then the scissor clamp, the conic gradient, the NEON fix, the
-  texture target format and the gaussian row's bounds.
+  texture target format, the gaussian row's bounds, the bezier segments and the threaded
+  geometry.
 
 The WebGPU fixes reach Creator TUI's GPU build as `crates/tui/gpu/patches/` (its build.py builds
 upstream v1.1.3 with them); the CPU build doesn't compile the WebGPU engine.
@@ -80,7 +87,8 @@ under a name of its own rather than forced over this one):
         fix/text-search-glyph-scope
     # (join the overlap above when the last one stops on it, then: git cherry-pick --continue)
     git cherry-pick -x a5acae45 feat/lottie-conic-gradient fix/neon-alpha-blend \
-        fix/wg-texture-target-format fix/gaussian-row-int
+        fix/wg-texture-target-format fix/gaussian-row-int fix/bezier-segments-no-alloc \
+        fix/wg-threaded-shape-geometry
     git cherry-pick -x <this file's commits>
 
 Then point thorvg-rs's `creator-tui-1.1.3` branch's `thorvg-sys/thorvg` at the new commit, and
