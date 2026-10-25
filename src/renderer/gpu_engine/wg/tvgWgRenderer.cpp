@@ -516,9 +516,17 @@ Result WgRenderer::target(const WgCanvas::Context& ctx, void* target, uint32_t w
 
     if (opaque) cs = ColorSpace::ABGR8888;  // Opaque surface composition uses the internal ABGR format.
 
+    // A texture is drawn in its own format (BGRA8 or RGBA8): the blit pipelines are made for it.
+    auto format = WGPUTextureFormat_BGRA8Unorm;
+    if (type != 0) {
+        format = wgpuTextureGetFormat((WGPUTexture)target);
+        if (format != WGPUTextureFormat_BGRA8Unorm && format != WGPUTextureFormat_RGBA8Unorm) return Result::NonSupport;
+    }
+
     // context has been changed, need to recreate all instances
-    if ((mContext.device != ctx.device) || (mContext.instance != ctx.instance) || mContext.adapter != ctx.adapter) {
+    if ((mContext.device != ctx.device) || (mContext.instance != ctx.instance) || mContext.adapter != ctx.adapter || mContext.format != format) {
         release();
+        mContext.format = format;
         mContext.initialize(ctx);
         mRenderTargetPool.initialize(w, h);
         mRenderTargetRoot.initialize(mContext, w, h);
