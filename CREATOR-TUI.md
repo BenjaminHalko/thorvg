@@ -32,11 +32,18 @@ them each; both are folded in here, and are kept only until nothing points at th
   - `feat/lottie-conic-gradient`: a gradient of type 3, which Lottie doesn't have, is drawn as
     a conic gradient around its start, from its end's direction. Creator TUI keeps a conic in its
     own data and hands ThorVG that type; the file it saves has a radial (type 2) players draw.
-- The WebGPU scissor clamp (a5acae45, from `creator-tui-1.1.3-wg`; no fix branch of its own
-  yet): every scissor rect in `WgCompositor` is clamped to the render target, as wgpu-native
-  aborts the process on one outside it.
+  - `fix/wg-scissor-clamp`: every scissor rect in `WgCompositor` is clamped to the render
+    target, as wgpu-native aborts the process on one outside it. (Here it came first as
+    a5acae45, from `creator-tui-1.1.3-wg`; the branch is that commit on upstream main.)
+  - `fix/wg-texture-target-format`: a texture target is drawn in its own format, BGRA8 or
+    RGBA8, rather than always BGRA8, so Creator TUI's stage comes back as RGBA without a swap
+    on the CPU.
 - `creator-tui-1.1.3` (this branch): `fix/exit-globals-1.1.3` with each fix branch's commit
-  cherry-picked in that order, then the scissor clamp, the conic gradient and the NEON fix.
+  cherry-picked in that order, then the scissor clamp, the conic gradient, the NEON fix and the
+  texture target format.
+
+The WebGPU fixes reach Creator TUI's GPU build as `crates/tui/gpu/patches/` (its build.py builds
+upstream v1.1.3 with them); the CPU build doesn't compile the WebGPU engine.
 
 ## The one overlap
 
@@ -69,7 +76,8 @@ under a name of its own rather than forced over this one):
         fix/text-range-random-whole fix/text-range-basis-percent fix/text-range-utf8 \
         fix/text-search-glyph-scope
     # (join the overlap above when the last one stops on it, then: git cherry-pick --continue)
-    git cherry-pick -x a5acae45 feat/lottie-conic-gradient fix/neon-alpha-blend
+    git cherry-pick -x a5acae45 feat/lottie-conic-gradient fix/neon-alpha-blend \
+        fix/wg-texture-target-format
     git cherry-pick -x <this file's commits>
 
 Then point thorvg-rs's `creator-tui-1.1.3` branch's `thorvg-sys/thorvg` at the new commit, and
