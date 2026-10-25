@@ -37,24 +37,39 @@ struct LottieProperty;
 //default keyframe updates condition (no tweening)
 #define DEFAULT_COND (!tween.active || !frames || (frames->count == 1))
 
+//a value between start and end: a point's y at t2, which eases it on its own (interpolator2)
+template<typename T>
+static inline T lerp2(const T& start, const T& end, float t, TVG_UNUSED float t2)
+{
+    return tvg::lerp(start, end, t);
+}
+
+static inline Point lerp2(const Point& start, const Point& end, float t, float t2)
+{
+    return {tvg::lerp(start.x, end.x, t), tvg::lerp(start.y, end.y, t2)};
+}
+
 template<typename T>
 struct LottieScalarFrame
 {
     T value;                    //keyframe value
     float no;                   //frame number
     LottieInterpolator* interpolator;
+    LottieInterpolator* interpolator2 = nullptr;    //the second dimension's, when it eases on its own
     bool hold = false;           //do not interpolate.
 
     T interpolate(LottieScalarFrame<T>* next, float frameNo)
     {
         auto t = (frameNo - no) / (next->no - no);
+        auto t2 = t;
         if (interpolator) t = interpolator->progress(t);
+        t2 = interpolator2 ? interpolator2->progress(t2) : t;
 
         if (hold) {
             if (t < 1.0f) return value;
             else return next->value;
         }
-        return tvg::lerp(value, next->value, t);
+        return lerp2(value, next->value, t, t2);
     }
 
     float angle(LottieScalarFrame* next, float frameNo) { return 0.0f; }
@@ -67,6 +82,7 @@ struct LottieVectorFrame
     T value;                    //keyframe value
     float no;                   //frame number
     LottieInterpolator* interpolator;
+    LottieInterpolator* interpolator2 = nullptr;    //the second dimension's, when it eases on its own
     T outTangent, inTangent;
     float length;
     bool hasTangent = false;
@@ -75,7 +91,9 @@ struct LottieVectorFrame
     T interpolate(LottieVectorFrame* next, float frameNo)
     {
         auto t = (frameNo - no) / (next->no - no);
+        auto t2 = t;
         if (interpolator) t = interpolator->progress(t);
+        t2 = interpolator2 ? interpolator2->progress(t2) : t;
 
         if (hold) {
             if (t < 1.0f) return value;
@@ -86,7 +104,7 @@ struct LottieVectorFrame
             Bezier bz = {value, value + outTangent, next->value + inTangent, next->value};
             return bz.at(bz.atApprox(t * length, length));
         } else {
-            return tvg::lerp(value, next->value, t);
+            return lerp2(value, next->value, t, t2);
         }
     }
 
@@ -106,6 +124,8 @@ struct LottieVectorFrame
 
     void prepare(LottieVectorFrame* next)
     {
+        //zero tangents make no curve: a straight move (whose dimensions may ease on their own)
+        if (hasTangent && tvg::zero(outTangent) && tvg::zero(inTangent)) hasTangent = false;
         Bezier bz = {value, value + outTangent, next->value + inTangent, next->value};
         length = bz.lengthApprox();
     }
