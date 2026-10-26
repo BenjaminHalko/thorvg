@@ -52,10 +52,14 @@ them each; both are folded in here, and are kept only until nothing points at th
   - `fix/lottie-per-dimension-easing`: a keyframe whose handles have a value for each dimension
     (`"x": [0.8, 0.1]`, as After Effects writes them) eases a point's y by its own, rather than by
     x's; a move whose spatial tangents are both zero is straight, not a curve.
+  - `fix/lottie-expression-threads`: a document's expressions run in one thread's JerryScript
+    context: a context found for a reused thread id is bound before it's used, and a document with
+    expressions is parsed, built and updated on the calling thread rather than on whichever worker is
+    free (both crashed in `jerry_object_get_index` once expressions ran on several threads).
 - `creator-tui-1.1.3` (this branch): `fix/exit-globals-1.1.3` with each fix branch's commit
   cherry-picked in that order, then the scissor clamp, the conic gradient, the NEON fix, the
   texture target format, the gaussian row's bounds, the bezier segments, the threaded geometry,
-  the gradient ramps and the per-dimension easing.
+  the gradient ramps, the per-dimension easing and the expression threads.
 
 The WebGPU fixes reach Creator TUI's GPU build as `crates/tui/gpu/patches/` (its build.py builds
 upstream v1.1.3 with them); the CPU build doesn't compile the WebGPU engine.
@@ -93,7 +97,8 @@ under a name of its own rather than forced over this one):
     # (join the overlap above when the last one stops on it, then: git cherry-pick --continue)
     git cherry-pick -x a5acae45 feat/lottie-conic-gradient fix/neon-alpha-blend \
         fix/wg-texture-target-format fix/gaussian-row-int fix/bezier-segments-no-alloc \
-        fix/wg-threaded-shape-geometry fix/wg-keep-gradient-ramp fix/lottie-per-dimension-easing
+        fix/wg-threaded-shape-geometry fix/wg-keep-gradient-ramp fix/lottie-per-dimension-easing \
+        fix/lottie-expression-threads
     git cherry-pick -x <this file's commits>
 
 Then point thorvg-rs's `creator-tui-1.1.3` branch's `thorvg-sys/thorvg` at the new commit, and
