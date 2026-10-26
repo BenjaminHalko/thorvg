@@ -259,6 +259,20 @@ bool LottieLoader::resize(Paint* paint, float w, float h)
 }
 
 
+static bool _hasExpressions(const char* content, uint32_t size)
+{
+    for (uint32_t i = 0; i + 4 < size; ++i) {
+        if (content[i] != '"' || content[i + 1] != 'x' || content[i + 2] != '"') continue;
+        auto j = i + 3;
+        while (j < size && (content[j] == ' ' || content[j] == '\n' || content[j] == '\r' || content[j] == '\t')) ++j;
+        if (j >= size || content[j] != ':') continue;
+        ++j;
+        while (j < size && (content[j] == ' ' || content[j] == '\n' || content[j] == '\r' || content[j] == '\t')) ++j;
+        if (j < size && content[j] == '"') return true;
+    }
+    return false;
+}
+
 bool LottieLoader::read()
 {
     // the loading has been already completed
@@ -266,7 +280,10 @@ bool LottieLoader::read()
 
     if (!content || size == 0) return false;
 
-    TaskScheduler::request(this);
+    // A document with expressions (an "x" key holding a string) is parsed and built on the
+    // calling thread too, so all its expression work stays on one thread's JerryScript context.
+    if (_hasExpressions(content, size)) run(0);
+    else TaskScheduler::request(this);
 
     return true;
 }
@@ -396,7 +413,10 @@ bool LottieLoader::frame(float no)
 
     if (comp) comp->clear();     //clear synchronously
 
-    TaskScheduler::request(this);
+    // Expressions run in thread-bound JerryScript contexts: build such a frame on the calling
+    // thread, as ThorVG does without workers, never on whichever worker is free.
+    if (comp && comp->expressions) run(0);
+    else TaskScheduler::request(this);
 
     return true;
 }
@@ -513,7 +533,10 @@ bool LottieLoader::tween(float progress)
     builder->tween.progress = progress;
     if (comp) comp->clear();  // clear synchronously
 
-    TaskScheduler::request(this);
+    // Expressions run in thread-bound JerryScript contexts: build such a frame on the calling
+    // thread, as ThorVG does without workers, never on whichever worker is free.
+    if (comp && comp->expressions) run(0);
+    else TaskScheduler::request(this);
 
     return true;
 }
@@ -533,7 +556,10 @@ bool LottieLoader::tween(float from, float to, float progress)
     builder->tween.on(shorten(to), progress);
     if (comp) comp->clear();     //clear synchronously
 
-    TaskScheduler::request(this);
+    // Expressions run in thread-bound JerryScript contexts: build such a frame on the calling
+    // thread, as ThorVG does without workers, never on whichever worker is free.
+    if (comp && comp->expressions) run(0);
+    else TaskScheduler::request(this);
 
     return true;
 }
