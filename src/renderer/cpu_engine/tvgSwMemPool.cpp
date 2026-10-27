@@ -34,9 +34,9 @@ static thread_local SwMpool* _pool = nullptr;
 // threaded builds use a plain global.
 static SwMpool* _pool = nullptr;
 #endif
-static Array<SwMpool*>& _pools = *new Array<SwMpool*>;  //never destroyed: may be used during exit
+static Array<SwMpool*> _pools;
 static uint32_t _threads = 0;
-static StrictKey& _key = *new StrictKey;  //never destroyed: may be locked during exit
+static StrictKey _key;
 
 /************************************************************************/
 /* External Class Implementation                                        */

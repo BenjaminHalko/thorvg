@@ -1,8 +1,12 @@
 # creator-tui: the ThorVG Creator TUI builds
 
 This branch is what Creator TUI builds, through thorvg-rs's `creator-tui-1.1.3` branch. It is
-`fix/exit-globals-1.1.3` (upstream v1.1.3 with our commits) plus a few fixes and one feature
+upstream v1.1.3 with the bare-metal series (e04d35a9) plus a few fixes and one feature
 cherry-picked onto it. Each is its own commit, the same change as the one on its own branch.
+
+It carries only changes upstream would take: each is merged upstream, in an upstream pull
+request, or about to be sent. What upstream turned down comes off (reverted on the end) and is
+solved in Creator TUI instead.
 
 The `creator-tui` branch is the same on v1.1.2, kept as it was. `creator-tui-1.1.3-wg` (the
 scissor clamp) and `creator-tui-1.1.3-conic` (the conic gradient) were this branch with one of
@@ -10,9 +14,12 @@ them each; both are folded in here, and are kept only until nothing points at th
 
 ## The branches
 
-- `fix/exit-globals-1.1.3`: the line under this branch. Upstream v1.1.3 with the bare-metal
-  series, plus the fixes that keep ThorVG's static mutexes, memory pools, cached loaders and (new
-  in v1.1.3) its start and stop lock alive past exit. `fix/exit-globals` is the same on v1.1.2.
+- `fix/exit-globals-1.1.3`: upstream v1.1.3 with the bare-metal series, plus the fixes that
+  kept ThorVG's static mutexes, memory pools, cached loaders and its start and stop lock alive
+  past exit. Upstream's answer is that `Initializer::term()` is paired with `init()`
+  (thorvg/thorvg#4951), so those three are reverted on the end of this branch: Creator TUI lets
+  what is drawing with ThorVG finish, refuses more, and calls `term()` before it exits. `fix/exit-globals` is the
+  same on v1.1.2.
 - One branch per fix, each a single commit on upstream `thorvg/thorvg` main, kept there so it
   can be opened upstream as a pull request on its own:
   - `fix/text-anchor-init`: a text layer's alignment anchor starts at (0, 0) when the file has
@@ -60,7 +67,8 @@ them each; both are folded in here, and are kept only until nothing points at th
 - `creator-tui-1.1.3` (this branch): `fix/exit-globals-1.1.3` with each fix branch's commit
   cherry-picked in that order, then the scissor clamp, the conic gradient, the NEON fix, the
   texture target format, the gaussian row's bounds, the bezier segments, the threaded geometry,
-  the gradient ramps, the per-dimension easing and the expression thread contexts.
+  the gradient ramps, the per-dimension easing and the expression thread contexts, then the exit
+  fixes reverted.
 
 The WebGPU fixes reach Creator TUI's GPU build as `crates/tui/gpu/patches/` (its build.py builds
 upstream v1.1.3 with them); the CPU build doesn't compile the WebGPU engine.
@@ -91,7 +99,7 @@ A fix or a feature added goes on the end of this branch, which is never rewritte
 When a fix branch changes, the branch is made again from the start, as a new branch (pushed
 under a name of its own rather than forced over this one):
 
-    git checkout -b <new branch> origin/fix/exit-globals-1.1.3
+    git checkout -b <new branch> e04d35a9   # upstream v1.1.3 and the bare-metal series
     git cherry-pick -x fix/text-anchor-init fix/text-range-ease-low \
         fix/text-range-random-whole fix/text-range-basis-percent fix/text-range-utf8 \
         fix/text-search-glyph-scope

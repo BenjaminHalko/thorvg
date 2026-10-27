@@ -47,7 +47,7 @@ namespace tvg {
 }
 
 static uint16_t _version = 0;
-static StrictKey& _key = *new StrictKey;  //never destroyed: may be locked during exit
+static StrictKey _key;
 
 static bool _buildVersionInfo(uint32_t* major, uint32_t* minor, uint32_t* micro)
 {

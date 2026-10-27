@@ -67,8 +67,8 @@ uintptr_t HASH_KEY(const char* data)
 // TODO: remove it.
 atomic<ColorSpace> BitmapLoader::cs{ColorSpace::ARGB8888};
 
-static Key& _key = *new Key;  //never destroyed: may be locked during exit
-static Inlist<tvg::Loader>& _activeLoaders = *new Inlist<tvg::Loader>;  //never destroyed: may be used during exit
+static Key _key;
+static Inlist<tvg::Loader> _activeLoaders;
 
 static tvg::Loader* _find(FileType type)
 {
