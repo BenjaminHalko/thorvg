@@ -331,28 +331,12 @@ bool LottieParser::getValue(RGB32& color)
 }
 
 
-//A handle may have a value for each dimension ("x": [0.2, 0.8]), as After Effects writes it:
-//pt takes the first dimension's, pt2 the second's (the first's again when there is one).
-void LottieParser::getInterpolatorPoint(Point& pt, Point& pt2)
+void LottieParser::getInterpolatorPoint(Point& pt)
 {
     enterObject();
     while (auto key = nextObjectKey()) {
-        if (KEY_AS("x")) getInterpolatorValue(pt.x, pt2.x);
-        else if (KEY_AS("y")) getInterpolatorValue(pt.y, pt2.y);
-    }
-}
-
-
-void LottieParser::getInterpolatorValue(float& val, float& val2)
-{
-    if (peekType() == kArrayType) {
-        enterArray();
-        if (nextArrayValue()) val = val2 = getFloat();
-        if (nextArrayValue()) val2 = getFloat();
-        //discard rest
-        while (nextArrayValue()) getFloat();
-    } else {
-        val = val2 = getFloat();
+        if (KEY_AS("x")) getValue(pt.x);
+        else if (KEY_AS("y")) getValue(pt.y);
     }
 }
 
@@ -416,7 +400,7 @@ LottieInterpolator* LottieParser::getInterpolator(const char* key, Point& in, Po
 template<typename T>
 void LottieParser::parseKeyFrame(T& prop)
 {
-    Point inTangent{}, outTangent{}, inTangent2{}, outTangent2{};
+    Point inTangent, outTangent;
     const char* interpolatorKey = nullptr;
     auto& frame = prop.newFrame();
     auto interpolator = false;
@@ -426,9 +410,9 @@ void LottieParser::parseKeyFrame(T& prop)
     while (auto key = nextObjectKey()) {
         if (KEY_AS("i")) {
             interpolator = true;
-            getInterpolatorPoint(inTangent, inTangent2);
+            getInterpolatorPoint(inTangent);
         } else if (KEY_AS("o")) {
-            getInterpolatorPoint(outTangent, outTangent2);
+            getInterpolatorPoint(outTangent);
         } else if (KEY_AS("n")) {
             if (peekType() == kStringType) {
                 interpolatorKey = getString();
@@ -457,10 +441,6 @@ void LottieParser::parseKeyFrame(T& prop)
 
     if (interpolator) {
         frame.interpolator = getInterpolator(interpolatorKey, inTangent, outTangent);
-        //the second dimension eased on its own
-        if (!(inTangent2 == inTangent) || !(outTangent2 == outTangent)) {
-            frame.interpolator2 = getInterpolator(nullptr, inTangent2, outTangent2);
-        }
     }
 }
 
