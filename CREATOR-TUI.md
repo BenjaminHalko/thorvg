@@ -6,7 +6,11 @@ cherry-picked onto it. Each is its own commit, the same change as the one on its
 
 It carries only changes upstream would take: each is merged upstream, in an upstream pull
 request, or about to be sent. What upstream turned down comes off (reverted on the end) and is
-solved in Creator TUI instead.
+solved in Creator TUI instead. Once upstream merges one, its own commit replaces ours (ours
+reverted, upstream's cherry-picked with -x), as merged: the scissor clamp (0aca66b6, upstream's
+`wg: size composition targets to their bounds`), the text anchor (d87bbd35), the ease low
+(7bc340a0), the randomized range (eabb3f87), the glyph search (a99dabd0) and the gaussian
+row's bounds (401b61f4).
 
 The `creator-tui` branch is the same on v1.1.2, kept as it was. `creator-tui-1.1.3-wg` (the
 scissor clamp) and `creator-tui-1.1.3-conic` (the conic gradient) were this branch with one of
