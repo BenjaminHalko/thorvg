@@ -133,7 +133,8 @@ struct SceneImpl : Scene
 
         RenderCompositor* cmp = nullptr;
         // its parent is already in composition mode, maybe parasitize its surface
-        auto incomposite = (uint8_t(CompositionFlag::PostProcessing) & uint8_t(flag)) && !effects;
+        // (not when this scene needs its own: update() moved its opacity onto that composite)
+        auto incomposite = (uint8_t(CompositionFlag::PostProcessing) & uint8_t(flag)) && !effects && !impl.marked(CompositionFlag::Opacity);
         auto ret = true;
 
         renderer->blend(impl.blendMethod);
