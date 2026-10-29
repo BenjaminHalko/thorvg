@@ -470,4 +470,36 @@ TEST_CASE("Lottie Audio Layer", "[tvgLottie]")
     REQUIRE(Initializer::term() == Result::Success);
 }
 
+
+TEST_CASE("Lottie Image on One Thread", "[tvgLottie]")
+{
+    //The Lottie loader builds on the only worker thread, and the image shown twice is decoded
+    //there for its duplicate: it must not wait for a task queued behind itself
+    REQUIRE(Initializer::init(1) == Result::Success);
+    {
+        auto canvas = unique_ptr<SwCanvas>(SwCanvas::gen());
+        REQUIRE(canvas);
+
+        uint32_t buffer[100*100] = {};
+        REQUIRE(canvas->target(buffer, 100, 100, 100, ColorSpace::ARGB8888) == Result::Success);
+
+        auto animation = unique_ptr<Animation>(Animation::gen());
+        REQUIRE(animation);
+
+        auto picture = animation->picture();
+        REQUIRE(picture->load(TEST_DIR"/image.lot") == Result::Success);
+        REQUIRE(animation->frame(10) == Result::Success);
+
+        REQUIRE(canvas->add(picture) == Result::Success);
+        REQUIRE(canvas->draw() == Result::Success);
+        REQUIRE(canvas->sync() == Result::Success);
+
+        //Both layers show the image, and nothing is between them
+        REQUIRE(buffer[25 * 100 + 25] == 0xffff0000);
+        REQUIRE(buffer[75 * 100 + 75] == 0xffff0000);
+        REQUIRE(buffer[50 * 100 + 50] == 0);
+    }
+    REQUIRE(Initializer::term() == Result::Success);
+}
+
 #endif
