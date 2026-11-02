@@ -27,6 +27,7 @@
 #endif
 #include <fstream>
 #include <cstring>
+#include <cmath>
 #include "catch.hpp"
 
 using namespace tvg;
@@ -299,6 +300,51 @@ TEST_CASE("Lottie Marker", "[tvgLottie]")
         REQUIRE(animation->marker(-1, &markerBegin, &markerEnd) == nullptr);
 
         REQUIRE(animation->segment(nullptr) == Result::Success);
+    }
+    REQUIRE(Initializer::term() == Result::Success);
+}
+
+TEST_CASE("Lottie Motion Path By Arc Length", "[tvgLottie]")
+{
+    //a dot moving along a curved spatial key with a linear ease: at each frame it sits at the
+    //same fraction of the curve's length as of the key's time, wherever the curve heads
+    REQUIRE(Initializer::init() == Result::Success);
+    {
+        auto animation = unique_ptr<LottieAnimation>(LottieAnimation::gen());
+        REQUIRE(animation);
+        auto picture = animation->picture();
+        REQUIRE(picture->load(TEST_DIR"/motion_path.json") == Result::Success);
+
+        const uint32_t w = 1000, h = 1200;
+        auto buffer = new uint32_t[w * h];
+        auto canvas = unique_ptr<SwCanvas>(SwCanvas::gen());
+        REQUIRE(canvas->target(buffer, w, w, h, ColorSpace::ARGB8888) == Result::Success);
+        REQUIRE(canvas->add(picture) == Result::Success);
+
+        //the points at about a third and three quarters of the length, worked out to 1e-4 px
+        const float frames[] = {49.0f, 124.0f};
+        const float want[][2] = {{202.7004f, 172.5172f}, {234.7630f, 728.0811f}};
+        for (int i = 0; i < 2; ++i) {
+            memset(buffer, 0, w * h * sizeof(uint32_t));
+            REQUIRE(animation->frame(frames[i]) == Result::Success);
+            REQUIRE(canvas->update() == Result::Success);
+            REQUIRE(canvas->draw(true) == Result::Success);
+            REQUIRE(canvas->sync() == Result::Success);
+            //the dot's centre: its coverage's centroid, pixel centres at half pixels
+            double sum = 0, sx = 0, sy = 0;
+            for (uint32_t y = 0; y < h; ++y) {
+                for (uint32_t x = 0; x < w; ++x) {
+                    auto a = (buffer[y * w + x] >> 24) & 0xff;
+                    sum += a;
+                    sx += a * (x + 0.5);
+                    sy += a * (y + 0.5);
+                }
+            }
+            REQUIRE(sum > 0);
+            REQUIRE(fabs(sx / sum - want[i][0]) < 0.1);
+            REQUIRE(fabs(sy / sum - want[i][1]) < 0.1);
+        }
+        delete[] buffer;
     }
     REQUIRE(Initializer::term() == Result::Success);
 }

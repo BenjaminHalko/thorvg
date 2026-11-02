@@ -84,7 +84,6 @@ struct LottieVectorFrame
     LottieInterpolator* interpolator;
     LottieInterpolator* interpolator2 = nullptr;    //the second dimension's, when it eases on its own
     T outTangent, inTangent;
-    float length;
     bool hasTangent = false;
     bool hold = false;
 
@@ -102,7 +101,7 @@ struct LottieVectorFrame
 
         if (hasTangent) {
             Bezier bz = {value, value + outTangent, next->value + inTangent, next->value};
-            return bz.at(bz.atApprox(t * length, length));
+            return bz.at(bz.atFraction(t));
         } else {
             return lerp2(value, next->value, t, t2);
         }
@@ -118,7 +117,7 @@ struct LottieVectorFrame
         auto t = (frameNo - no) / (next->no - no);
         if (interpolator) t = interpolator->progress(t);
         Bezier bz = {value, value + outTangent, next->value + inTangent, next->value};
-        t = bz.atApprox(t * length, length);
+        t = bz.atFraction(t);
         return bz.angle(t >= 1.0f ? 0.99f : (t <= 0.0f ? 0.01f : t));
     }
 
@@ -126,8 +125,6 @@ struct LottieVectorFrame
     {
         //zero tangents make no curve: a straight move (whose dimensions may ease on their own)
         if (hasTangent && tvg::zero(outTangent) && tvg::zero(inTangent)) hasTangent = false;
-        Bezier bz = {value, value + outTangent, next->value + inTangent, next->value};
-        length = bz.lengthApprox();
     }
 };
 
