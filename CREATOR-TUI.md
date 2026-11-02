@@ -69,11 +69,17 @@ them each; both are folded in here, and are kept only until nothing points at th
     worker waiting on it while the others sleep; a Lottie with many images, each decoded while
     its loader runs on a worker, no longer hangs whatever draws it. Upstream's scheduler has
     dependencies between tasks, so there the task is completed too; here it's only run.
+  - `fix/lottie-motion-path-length`: a point keyed along a curve (spatial tangents) moves along it
+    by its length measured exactly (64 chords, the parameter interpolated within the chord),
+    rather than by the alpha-max-plus-beta-min estimate, which ran it up to 7% ahead or behind by
+    direction (5.6 px on a confetti streamer's 1,200 px path). Setting a frame with many such keys
+    takes about half the time it did. Here it's a backport (v1.1.3's `Bezier::at(at, length)` is
+    upstream's `atApprox`), with its test in `test/testLottie.cpp`.
 - `creator-tui-1.1.3` (this branch): `fix/exit-globals-1.1.3` with each fix branch's commit
   cherry-picked in that order, then the scissor clamp, the conic gradient, the NEON fix, the
   texture target format, the gaussian row's bounds, the bezier segments, the threaded geometry,
   the gradient ramps, the per-dimension easing and the expression thread contexts, then the exit
-  fixes reverted, then the scheduler's worker requests.
+  fixes reverted, then the scheduler's worker requests, then the motion path's length.
 
 The WebGPU fixes reach Creator TUI's GPU build as `crates/tui/gpu/patches/` (its build.py builds
 upstream v1.1.3 with them); the CPU build doesn't compile the WebGPU engine.
@@ -115,6 +121,7 @@ under a name of its own rather than forced over this one):
         bd5734b4 fix/scheduler-worker-requests
     # (the last conflicts: 1.1.3's scheduler has no dependencies, so the task is run, not
     # completed; take it as on this branch, then: git cherry-pick --continue)
+    git cherry-pick -x <this branch's backport of fix/lottie-motion-path-length>
     git cherry-pick -x <this file's commits>
 
 Then point thorvg-rs's `creator-tui-1.1.3` branch's `thorvg-sys/thorvg` at the new commit, and
