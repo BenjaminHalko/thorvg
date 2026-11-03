@@ -508,6 +508,12 @@ Result SfntLoader::gen(uint8_t* data, uint32_t size, SfntReader*& out)
 /* External Class Implementation                                        */
 /************************************************************************/
 
+bool SfntLoader::italic() const
+{
+    return reader && reader->metrics.italic;
+}
+
+
 void SfntLoader::transform(Paint* paint, FontMetrics& fm, float italicShear)
 {
     auto engine = static_cast<SfntMetrics*>(fm.engine);

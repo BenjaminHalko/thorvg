@@ -56,6 +56,7 @@ struct SfntReader
         uint16_t unitsPerEm;
         uint16_t numHmtx;      //the number of Horizontal metrics table
         uint8_t locaFormat;    //0 for short offsets, 1 for long
+        bool italic;           //the face is designed italic (head.macStyle bit 1)
     } metrics;
 
     SfntReader(uint8_t* data, uint32_t size) :
