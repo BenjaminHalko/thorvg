@@ -28,6 +28,7 @@
 #include <fstream>
 #include <cstring>
 #include <cmath>
+#include <algorithm>
 #include "catch.hpp"
 
 using namespace tvg;
@@ -348,6 +349,95 @@ TEST_CASE("Lottie Motion Path By Arc Length", "[tvgLottie]")
     }
     REQUIRE(Initializer::term() == Result::Success);
 }
+
+#ifdef THORVG_TTF_LOADER_SUPPORT
+//the horizontal centre of the coverage in the top and the bottom quarter of a text layer's "I",
+//drawn in the font loaded as `name` with its style "Italic"
+static void italicStem(const char* name, double& top, double& bottom)
+{
+    auto json = string(R"({"v":"5.7.4","fr":30,"ip":0,"op":10,"w":200,"h":200,"ddd":0,"assets":[],)"
+        R"("fonts":{"list":[{"fName":"NAME","fFamily":"NAME","fStyle":"Italic","ascent":75}]},)"
+        R"("layers":[{"ddd":0,"ind":1,"ty":5,"sr":1,"ks":{"o":{"a":0,"k":100},"r":{"a":0,"k":0},)"
+        R"("p":{"a":0,"k":[100,170,0]},"a":{"a":0,"k":[0,0,0]},"s":{"a":0,"k":[100,100,100]}},"ao":0,)"
+        R"("t":{"d":{"k":[{"s":{"s":160,"f":"NAME","t":"I","j":2,"tr":0,"lh":192,"ls":0,"fc":[0,0,0]},"t":0}]},)"
+        R"("p":{},"m":{"g":1,"a":{"a":0,"k":[0,0]}},"a":[]},"ip":0,"op":10,"st":0,"bm":0}]})");
+    for (auto at = json.find("NAME"); at != string::npos; at = json.find("NAME")) json.replace(at, 4, name);
+
+    auto animation = unique_ptr<LottieAnimation>(LottieAnimation::gen());
+    REQUIRE(animation);
+    auto picture = animation->picture();
+    REQUIRE(picture->load(json.c_str(), json.size(), "lottie", nullptr, true) == Result::Success);
+
+    const uint32_t w = 200, h = 200;
+    auto buffer = new uint32_t[w * h]();
+    auto canvas = unique_ptr<SwCanvas>(SwCanvas::gen());
+    REQUIRE(canvas->target(buffer, w, w, h, ColorSpace::ARGB8888) == Result::Success);
+    REQUIRE(canvas->add(picture) == Result::Success);
+    REQUIRE(canvas->update() == Result::Success);
+    REQUIRE(canvas->draw(true) == Result::Success);
+    REQUIRE(canvas->sync() == Result::Success);
+
+    //the rows the stem covers, and the centre of each end's quarter of them
+    uint32_t y0 = h, y1 = 0;
+    for (uint32_t y = 0; y < h; ++y) {
+        for (uint32_t x = 0; x < w; ++x) {
+            if (buffer[y * w + x] >> 24) {
+                y0 = std::min(y0, y);
+                y1 = std::max(y1, y);
+            }
+        }
+    }
+    REQUIRE(y1 > y0 + 40);
+    auto centre = [&](uint32_t from, uint32_t to) {
+        double sum = 0, sx = 0;
+        for (auto y = from; y < to; ++y) {
+            for (uint32_t x = 0; x < w; ++x) {
+                auto a = (buffer[y * w + x] >> 24) & 0xff;
+                sum += a;
+                sx += a * (x + 0.5);
+            }
+        }
+        REQUIRE(sum > 0);
+        return sx / sum;
+    };
+    auto q = (y1 - y0) / 4;
+    top = centre(y0, y0 + q);
+    bottom = centre(y1 - q, y1);
+    delete[] buffer;
+}
+
+TEST_CASE("Lottie Italic Style Of An Italic Face", "[tvgLottie]")
+{
+    //a font whose style is named "Italic" is sheared only when its face isn't italic already:
+    //an upright face's I leans, the same face marked italic (head.macStyle) stands as drawn
+    REQUIRE(Initializer::init() == Result::Success);
+    {
+        ifstream file(TEST_DIR"/PublicSans-Regular.ttf", ios::binary);
+        REQUIRE(file.is_open());
+        string upright((istreambuf_iterator<char>(file)), istreambuf_iterator<char>());
+        auto italic = upright;
+        //the head table, from the table records after the 12-byte header; its macStyle at 44
+        auto u16 = [&](size_t at) { return (uint8_t(italic[at]) << 8) | uint8_t(italic[at + 1]); };
+        auto u32 = [&](size_t at) { return (uint32_t(u16(at)) << 16) | u16(at + 2); };
+        size_t head = 0;
+        for (size_t i = 0; i < u16(4); ++i) {
+            if (italic.compare(12 + i * 16, 4, "head") == 0) head = u32(12 + i * 16 + 8);
+        }
+        REQUIRE(head > 0);
+        italic[head + 45] = char(uint8_t(italic[head + 45]) | 0x02);
+
+        REQUIRE(Text::load("Upright Face", upright.data(), upright.size(), "ttf", true) == Result::Success);
+        REQUIRE(Text::load("Italic Face", italic.data(), italic.size(), "ttf", true) == Result::Success);
+
+        double top, bottom;
+        italicStem("Upright Face", top, bottom);
+        REQUIRE(top - bottom > 10.0);
+        italicStem("Italic Face", top, bottom);
+        REQUIRE(fabs(top - bottom) < 0.5);
+    }
+    REQUIRE(Initializer::term() == Result::Success);
+}
+#endif
 
 TEST_CASE("Lottie Tween", "[tvgLottie]")
 {

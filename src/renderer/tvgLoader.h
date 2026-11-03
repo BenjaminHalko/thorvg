@@ -229,6 +229,8 @@ struct FontLoader : Loader
 
     FontLoader(FileType type) : Loader(type) {}
 
+    virtual bool italic() const { return false; }  // the face is designed italic
+
     using Loader::read;
 
     virtual bool get(FontMetrics& fm, char* text, uint32_t len, RenderPath& out) = 0;

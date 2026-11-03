@@ -218,6 +218,7 @@ Result SfntReader::header()
 
     metrics.unitsPerEm = u16(head + 18);
     metrics.locaFormat = u16(head + 50);
+    metrics.italic = u16(head + 44) & 0x0002;
 
     // horizontal header
     auto hhea = table("hhea");

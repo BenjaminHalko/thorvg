@@ -53,6 +53,7 @@ struct SfntLoader : public FontLoader
     Result open(const char* path, const LoaderOps& ops) override;
     Result open(const char* data, uint32_t size, const LoaderOps& ops) override;
     void transform(Paint* paint, FontMetrics& fm, float italicShear) override;
+    bool italic() const override;
     bool get(FontMetrics& fm, char* text, uint32_t len, RenderPath& out) override;
     void copy(const FontMetrics& in, FontMetrics& out) override;
     void release(FontMetrics& fm) override;
